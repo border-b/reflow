@@ -1,0 +1,15 @@
+.DS_Store
+
+# Runtime data (screenshots + local DB)
+data/
+
+# SQLite files
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+
+# Local env/logs
+.env
+.env.*
+*.log

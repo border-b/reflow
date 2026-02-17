@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>No-AI Screen Timeline</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>No-AI Screen Timeline</h1>
+      <p id="status">Starting...</p>
+      <p id="count">0 captures</p>
+    </header>
+
+    <main>
+      <section id="timeline" class="timeline"></section>
+    </main>
+
+    <template id="capture-template">
+      <article class="capture-card">
+        <img class="thumb" alt="Screenshot frame" loading="lazy" />
+        <div class="meta">
+          <div class="line time"></div>
+          <div class="line app"></div>
+          <div class="line bundle"></div>
+          <div class="line pid"></div>
+          <div class="line bytes"></div>
+        </div>
+      </article>
+    </template>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
