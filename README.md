@@ -1,6 +1,6 @@
-# dayflow-noai-minimal
+# reflow
 
-Minimal macOS screen capture timeline (no AI).
+Minimal macOS screen capture timeline.
 
 ## Run
 
