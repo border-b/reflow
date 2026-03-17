@@ -1,14 +1,17 @@
 import { CaptureService } from "./capture.ts";
 import { ensureRuntimeDirs, getConfig } from "./config.ts";
 import { CaptureDatabase } from "./db.ts";
+import { FramePreviewStore, SegmentManager } from "./media_store.ts";
 import { TimelineServer } from "./server.ts";
 
 const config = getConfig();
 await ensureRuntimeDirs(config);
 
 const db = new CaptureDatabase(config.dbPath);
-const server = new TimelineServer(config, db);
-const capture = new CaptureService(config, db, (row) => {
+const segmentManager = new SegmentManager(config, db);
+const framePreviewStore = new FramePreviewStore(config);
+const server = new TimelineServer(config, db, framePreviewStore);
+const capture = new CaptureService(config, db, segmentManager, framePreviewStore, (row) => {
   server.broadcastCapture(row);
 });
 
@@ -16,8 +19,9 @@ server.start();
 capture.start();
 
 console.log(`[paths] db: ${config.dbPath}`);
-console.log(`[paths] screenshots: ${config.screenshotsDir}`);
-console.log("[mode] no-ai capture + sqlite + live timeline");
+console.log(`[paths] segments: ${config.segmentsDir}`);
+console.log(`[paths] frame-cache: ${config.frameCacheDir}`);
+console.log("[mode] no-ai capture + segment storage + live timeline");
 
 let shuttingDown = false;
 let resolveDone: (() => void) | null = null;

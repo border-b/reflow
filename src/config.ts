@@ -5,7 +5,10 @@ export interface AppConfig {
   projectRoot: string;
   dataDir: string;
   staticDir: string;
-  screenshotsDir: string;
+  tempDir: string;
+  segmentsDir: string;
+  pendingSegmentsDir: string;
+  frameCacheDir: string;
   dbPath: string;
   port: number;
   captureIntervalMs: number;
@@ -37,14 +40,20 @@ export function getConfig(): AppConfig {
   const projectRoot = resolve(srcDir, "..");
   const dataDir = join(projectRoot, "data");
   const staticDir = join(srcDir, "static");
-  const screenshotsDir = join(dataDir, "screenshots");
-  const dbPath = join(dataDir, "dayflow_noai.sqlite");
+  const tempDir = join(dataDir, "tmp");
+  const segmentsDir = join(dataDir, "segments");
+  const pendingSegmentsDir = join(segmentsDir, "pending");
+  const frameCacheDir = join(dataDir, "frame-cache");
+  const dbPath = join(dataDir, "reflow_segments.sqlite");
 
   return {
     projectRoot,
     dataDir,
     staticDir,
-    screenshotsDir,
+    tempDir,
+    segmentsDir,
+    pendingSegmentsDir,
+    frameCacheDir,
     dbPath,
     port: parsePort(readPortFromEnv()),
     captureIntervalMs: DEFAULT_CAPTURE_INTERVAL_MS,
@@ -53,5 +62,8 @@ export function getConfig(): AppConfig {
 
 export async function ensureRuntimeDirs(config: AppConfig): Promise<void> {
   await Deno.mkdir(config.dataDir, { recursive: true });
-  await Deno.mkdir(config.screenshotsDir, { recursive: true });
+  await Deno.mkdir(config.tempDir, { recursive: true });
+  await Deno.mkdir(config.segmentsDir, { recursive: true });
+  await Deno.mkdir(config.pendingSegmentsDir, { recursive: true });
+  await Deno.mkdir(config.frameCacheDir, { recursive: true });
 }
