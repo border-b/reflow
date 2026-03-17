@@ -2,6 +2,6 @@
   "tasks": {
     "dev": "deno run --allow-run --allow-read --allow-write --allow-net src/main.ts",
     "start": "deno run --allow-run --allow-read --allow-write --allow-net src/main.ts",
-    "check": "deno check src/main.ts && deno test --allow-read --allow-write tests"
+    "check": "deno check src/main.ts && deno test --allow-read --allow-write --allow-run tests"
   }
 }

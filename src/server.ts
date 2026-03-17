@@ -1,6 +1,6 @@
-import { join } from "node:path";
 import type { AppConfig } from "./config.ts";
 import { CaptureDatabase } from "./db.ts";
+import { FramePreviewStore } from "./media_store.ts";
 import type { CaptureEvent, CaptureRow } from "./types.ts";
 
 const SSE_HEADERS = {
@@ -28,19 +28,18 @@ function parsePositiveInt(value: string | null): number | null {
   return parsed;
 }
 
-export function sanitizeImageFilename(raw: string): string | null {
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(raw);
-  } catch {
+export function parseFrameCaptureId(pathname: string): number | null {
+  const match = pathname.match(/^\/api\/frame\/([0-9]+)\.jpg$/i);
+  if (!match) {
     return null;
   }
 
-  if (!/^[0-9]+\.jpg$/i.test(decoded)) {
+  const captureId = Number.parseInt(match[1] ?? "", 10);
+  if (!Number.isFinite(captureId) || captureId <= 0) {
     return null;
   }
 
-  return decoded;
+  return captureId;
 }
 
 export class TimelineServer {
@@ -53,6 +52,7 @@ export class TimelineServer {
   constructor(
     private readonly config: AppConfig,
     private readonly db: CaptureDatabase,
+    private readonly framePreviewStore: FramePreviewStore,
   ) {}
 
   start(): void {
@@ -141,9 +141,8 @@ export class TimelineServer {
       return this.handleStreamApi(request);
     }
 
-    if (pathname.startsWith("/images/")) {
-      const filename = pathname.slice("/images/".length);
-      return this.serveImage(filename);
+    if (pathname.startsWith("/api/frame/")) {
+      return this.handleFrameRequest(pathname);
     }
 
     return new Response("not found", { status: 404 });
@@ -207,7 +206,7 @@ export class TimelineServer {
   }
 
   private async serveStaticFile(filename: string, contentType: string): Promise<Response> {
-    const path = join(this.config.staticDir, filename);
+    const path = `${this.config.staticDir}/${filename}`;
     try {
       const data = await Deno.readFile(path);
       return new Response(data, {
@@ -221,16 +220,24 @@ export class TimelineServer {
     }
   }
 
-  private async serveImage(rawFilename: string): Promise<Response> {
-    const filename = sanitizeImageFilename(rawFilename);
-    if (!filename) {
-      return new Response("invalid image path", { status: 400 });
+  private async handleFrameRequest(pathname: string): Promise<Response> {
+    const captureId = parseFrameCaptureId(pathname);
+    if (!captureId) {
+      return new Response("invalid frame path", { status: 400 });
     }
 
-    const path = join(this.config.screenshotsDir, filename);
+    const capture = this.db.getCaptureFrame(captureId);
+    if (!capture) {
+      return new Response("capture not found", { status: 404 });
+    }
+
+    const previewPath = await this.framePreviewStore.getOrCreatePreview(capture);
+    if (!previewPath) {
+      return new Response("frame not available", { status: 404 });
+    }
 
     try {
-      const data = await Deno.readFile(path);
+      const data = await Deno.readFile(previewPath);
       return new Response(data, {
         headers: {
           "content-type": "image/jpeg",
@@ -238,7 +245,7 @@ export class TimelineServer {
         },
       });
     } catch {
-      return new Response("image not found", { status: 404 });
+      return new Response("frame not found", { status: 404 });
     }
   }
 }

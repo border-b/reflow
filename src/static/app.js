@@ -6,13 +6,6 @@ const template = document.getElementById("capture-template");
 const seenIds = new Set();
 let visibleCount = 0;
 
-function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  return `${(kb / 1024).toFixed(2)} MB`;
-}
-
 function formatTime(ms) {
   return new Date(ms).toLocaleString();
 }
@@ -31,15 +24,16 @@ function renderCapture(capture, { prepend = false } = {}) {
   const appLine = node.querySelector(".app");
   const bundleLine = node.querySelector(".bundle");
   const pidLine = node.querySelector(".pid");
-  const bytesLine = node.querySelector(".bytes");
+  const storageLine = node.querySelector(".bytes");
 
-  img.src = `/images/${encodeURIComponent(capture.image_filename)}?v=${capture.id}`;
+  img.src = `${capture.image_url}?v=${capture.id}`;
 
   timeLine.textContent = `Captured: ${formatTime(capture.captured_at_ms)}`;
   appLine.textContent = `Frontmost app: ${capture.frontmost_app_name ?? "(unknown)"}`;
   bundleLine.textContent = `Bundle ID: ${capture.frontmost_bundle_id ?? "(unknown)"}`;
   pidLine.textContent = `PID: ${capture.frontmost_pid ?? "(unknown)"}`;
-  bytesLine.textContent = `Image size: ${formatBytes(capture.image_bytes)}`;
+  storageLine.textContent =
+    `Storage: ${capture.storage_kind} · segment ${capture.segment_id} frame ${capture.segment_frame_index}`;
 
   if (prepend) {
     timelineEl.prepend(node);

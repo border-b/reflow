@@ -2,6 +2,7 @@ import { join } from "node:path";
 import type { AppConfig } from "./config.ts";
 import { CaptureDatabase } from "./db.ts";
 import { getFrontmostAppMetadata } from "./frontmost.ts";
+import { FramePreviewStore, SegmentManager } from "./media_store.ts";
 import type { CaptureRow } from "./types.ts";
 
 type CaptureCallback = (row: CaptureRow) => void;
@@ -25,6 +26,8 @@ export class CaptureService {
   constructor(
     private readonly config: AppConfig,
     private readonly db: CaptureDatabase,
+    private readonly segmentManager: SegmentManager,
+    private readonly framePreviewStore: FramePreviewStore,
     private readonly onCapture: CaptureCallback,
   ) {}
 
@@ -44,6 +47,7 @@ export class CaptureService {
       this.loopPromise = null;
     }
 
+    await this.segmentManager.flush();
     console.log("[capture] stopped");
   }
 
@@ -69,11 +73,10 @@ export class CaptureService {
   }
 
   private async captureOnce(capturedAtMs: number): Promise<void> {
-    const filename = `${capturedAtMs}.jpg`;
-    const imagePath = join(this.config.screenshotsDir, filename);
+    const imagePath = join(this.config.tempDir, `${capturedAtMs}.png`);
 
     const output = await new Deno.Command("screencapture", {
-      args: ["-x", "-m", "-t", "jpg", imagePath],
+      args: ["-x", "-m", "-t", "png", imagePath],
       stdout: "piped",
       stderr: "piped",
     }).output();
@@ -84,34 +87,42 @@ export class CaptureService {
       return;
     }
 
-    let imageBytes = 0;
-    try {
-      const stat = await Deno.stat(imagePath);
-      imageBytes = stat.size;
-    } catch (error) {
-      console.warn(`[capture] failed to stat image: ${error}`);
-      await safeRemove(imagePath);
-      return;
-    }
-
     const frontmost = await getFrontmostAppMetadata();
+    let placement:
+      | { segment_id: number; segment_frame_index: number; segment_pts_ms: number }
+      | null = null;
 
     try {
+      placement = await this.segmentManager.appendFrame(imagePath, capturedAtMs);
+
       const row = this.db.insertCapture({
         captured_at_ms: capturedAtMs,
         captured_at_iso: new Date(capturedAtMs).toISOString(),
-        image_filename: filename,
-        image_bytes: imageBytes,
+        segment_id: placement.segment_id,
+        segment_frame_index: placement.segment_frame_index,
+        segment_pts_ms: placement.segment_pts_ms,
         frontmost_app_name: frontmost?.name ?? null,
         frontmost_bundle_id: frontmost?.bundleId ?? null,
         frontmost_pid: frontmost?.pid ?? null,
         created_at_ms: Date.now(),
       });
 
+      try {
+        await this.framePreviewStore.createPreviewFromImage(row.id, imagePath);
+      } catch (error) {
+        console.warn(`[capture] failed to warm frame preview for ${row.id}: ${error}`);
+      }
+
       this.onCapture(row);
     } catch (error) {
       console.error(`[capture] database insert failed: ${error}`);
+      if (placement) {
+        await this.segmentManager.discardFrame(placement);
+      }
       await safeRemove(imagePath);
+      return;
     }
+
+    await safeRemove(imagePath);
   }
 }
